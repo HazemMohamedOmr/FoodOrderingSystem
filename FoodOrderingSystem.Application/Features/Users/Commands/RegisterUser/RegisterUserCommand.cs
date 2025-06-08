@@ -1,0 +1,59 @@
+using System.Threading;
+using System.Threading.Tasks;
+using AutoMapper;
+using FoodOrderingSystem.Application.Common.Interfaces;
+using FoodOrderingSystem.Application.Common.Models;
+using FoodOrderingSystem.Domain.Entities;
+using FoodOrderingSystem.Domain.Enums;
+using MediatR;
+
+namespace FoodOrderingSystem.Application.Features.Users.Commands.RegisterUser
+{
+    public class RegisterUserCommand : IRequest<Result<UserDto>>
+    {
+        public string Name { get; set; }
+        public string PhoneNumber { get; set; }
+        public string Email { get; set; }
+        public string Password { get; set; }
+    }
+
+    public class RegisterUserCommandHandler : IRequestHandler<RegisterUserCommand, Result<UserDto>>
+    {
+        private readonly IAuthService _authService;
+        private readonly IMapper _mapper;
+
+        public RegisterUserCommandHandler(IAuthService authService, IMapper mapper)
+        {
+            _authService = authService;
+            _mapper = mapper;
+        }
+
+        public async Task<Result<UserDto>> Handle(RegisterUserCommand request, CancellationToken cancellationToken)
+        {
+            var existingUser = await _authService.GetUserByPhoneNumberAsync(request.PhoneNumber, cancellationToken);
+            
+            if (existingUser != null)
+            {
+                return Result<UserDto>.Failure("Phone number is already registered.");
+            }
+
+            var user = new User
+            {
+                Name = request.Name,
+                PhoneNumber = request.PhoneNumber,
+                Email = request.Email,
+                Role = UserRole.EndUser
+            };
+
+            var result = await _authService.RegisterUserAsync(user, request.Password, cancellationToken);
+
+            if (!result.Succeeded)
+            {
+                return Result<UserDto>.Failure(result.Errors);
+            }
+
+            var userDto = _mapper.Map<UserDto>(result.Data);
+            return Result<UserDto>.Success(userDto);
+        }
+    }
+} 
