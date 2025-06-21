@@ -9,9 +9,6 @@ namespace FoodOrderingSystem.Application.Features.Orders.Commands.AddOrderItem
             RuleFor(v => v.OrderId)
                 .NotEmpty().WithMessage("Order ID is required.");
 
-            RuleFor(v => v.UserId)
-                .NotEmpty().WithMessage("User ID is required.");
-
             RuleFor(v => v.MenuItemId)
                 .NotEmpty().WithMessage("Menu item ID is required.");
 

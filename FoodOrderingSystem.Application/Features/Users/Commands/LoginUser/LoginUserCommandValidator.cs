@@ -6,8 +6,9 @@ namespace FoodOrderingSystem.Application.Features.Users.Commands.LoginUser
     {
         public LoginUserCommandValidator()
         {
-            RuleFor(v => v.PhoneNumber)
-                .NotEmpty().WithMessage("Phone number is required.");
+            RuleFor(v => v.Email)
+                .NotEmpty().WithMessage("Email is required.")
+                .EmailAddress().WithMessage("Email is not in a valid format.");
 
             RuleFor(v => v.Password)
                 .NotEmpty().WithMessage("Password is required.");

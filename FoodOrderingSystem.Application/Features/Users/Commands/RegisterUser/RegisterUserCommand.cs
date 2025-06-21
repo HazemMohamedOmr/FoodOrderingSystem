@@ -6,6 +6,7 @@ using FoodOrderingSystem.Application.Common.Models;
 using FoodOrderingSystem.Domain.Entities;
 using FoodOrderingSystem.Domain.Enums;
 using MediatR;
+using System;
 
 namespace FoodOrderingSystem.Application.Features.Users.Commands.RegisterUser
 {
@@ -30,11 +31,18 @@ namespace FoodOrderingSystem.Application.Features.Users.Commands.RegisterUser
 
         public async Task<Result<UserDto>> Handle(RegisterUserCommand request, CancellationToken cancellationToken)
         {
-            var existingUser = await _authService.GetUserByPhoneNumberAsync(request.PhoneNumber, cancellationToken);
-            
-            if (existingUser != null)
+            // Check for existing phone number
+            var existingUserByPhone = await _authService.GetUserByPhoneNumberAsync(request.PhoneNumber, cancellationToken);
+            if (existingUserByPhone != null)
             {
                 return Result<UserDto>.Failure("Phone number is already registered.");
+            }
+
+            // Check for existing email
+            var existingUserByEmail = await _authService.GetUserByEmailAsync(request.Email, cancellationToken);
+            if (existingUserByEmail != null)
+            {
+                return Result<UserDto>.Failure("Email is already registered.");
             }
 
             var user = new User
@@ -42,7 +50,10 @@ namespace FoodOrderingSystem.Application.Features.Users.Commands.RegisterUser
                 Name = request.Name,
                 PhoneNumber = request.PhoneNumber,
                 Email = request.Email,
-                Role = UserRole.EndUser
+                Role = UserRole.EndUser,
+                CreatedBy = "System",
+                LastModifiedBy = "System",
+                CreatedAt = DateTime.UtcNow
             };
 
             var result = await _authService.RegisterUserAsync(user, request.Password, cancellationToken);

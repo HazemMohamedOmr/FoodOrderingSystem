@@ -20,10 +20,12 @@ namespace FoodOrderingSystem.Application.Features.Orders.Commands.UpdatePaymentS
     public class UpdatePaymentStatusCommandHandler : IRequestHandler<UpdatePaymentStatusCommand, Result>
     {
         private readonly IUnitOfWork _unitOfWork;
+        private readonly ICurrentUserService _currentUserService;
 
-        public UpdatePaymentStatusCommandHandler(IUnitOfWork unitOfWork)
+        public UpdatePaymentStatusCommandHandler(IUnitOfWork unitOfWork, ICurrentUserService currentUserService)
         {
             _unitOfWork = unitOfWork;
+            _currentUserService = currentUserService;
         }
 
         public async Task<Result> Handle(UpdatePaymentStatusCommand request, CancellationToken cancellationToken)
@@ -51,11 +53,14 @@ namespace FoodOrderingSystem.Application.Features.Orders.Commands.UpdatePaymentS
                 return Result.Failure($"No payment record found for user {request.UserId} in order {request.OrderId}.");
             }
 
+            var userName = _currentUserService.UserName ?? "System";
+
             foreach (var payment in payments)
             {
                 payment.Status = request.Status;
                 payment.LastModifiedAt = DateTime.UtcNow;
-                await _unitOfWork.Payments.UpdateAsync(payment, cancellationToken);
+                payment.LastModifiedBy = userName;
+                _unitOfWork.Payments.Update(payment);
             }
 
             await _unitOfWork.SaveChangesAsync(cancellationToken);

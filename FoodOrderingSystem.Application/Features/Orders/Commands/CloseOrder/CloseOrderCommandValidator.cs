@@ -8,9 +8,6 @@ namespace FoodOrderingSystem.Application.Features.Orders.Commands.CloseOrder
         {
             RuleFor(v => v.OrderId)
                 .NotEmpty().WithMessage("Order ID is required.");
-
-            RuleFor(v => v.ManagerId)
-                .NotEmpty().WithMessage("Manager ID is required.");
         }
     }
 } 

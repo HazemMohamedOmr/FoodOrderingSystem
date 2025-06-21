@@ -16,8 +16,8 @@ namespace FoodOrderingSystem.Application.Features.Users.Commands.RegisterUser
                 .Matches(@"^\+?[0-9]{10,15}$").WithMessage("Phone number is not valid.");
 
             RuleFor(v => v.Email)
-                .EmailAddress().WithMessage("Email is not valid.")
-                .When(v => !string.IsNullOrEmpty(v.Email));
+                .NotEmpty().WithMessage("Email is required.")
+                .EmailAddress().WithMessage("Email is not valid.");
 
             RuleFor(v => v.Password)
                 .NotEmpty().WithMessage("Password is required.")

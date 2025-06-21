@@ -8,7 +8,7 @@ namespace FoodOrderingSystem.Application.Features.Users.Commands.LoginUser
 {
     public class LoginUserCommand : IRequest<Result<string>>
     {
-        public string PhoneNumber { get; set; }
+        public string Email { get; set; }
         public string Password { get; set; }
     }
 
@@ -23,7 +23,7 @@ namespace FoodOrderingSystem.Application.Features.Users.Commands.LoginUser
 
         public async Task<Result<string>> Handle(LoginUserCommand request, CancellationToken cancellationToken)
         {
-            return await _authService.AuthenticateAsync(request.PhoneNumber, request.Password, cancellationToken);
+            return await _authService.AuthenticateByEmailAsync(request.Email, request.Password, cancellationToken);
         }
     }
 } 

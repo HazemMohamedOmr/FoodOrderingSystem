@@ -6,6 +6,7 @@ using FoodOrderingSystem.Application.Common.Interfaces;
 using FoodOrderingSystem.Application.Common.Models;
 using FoodOrderingSystem.Domain.Entities;
 using MediatR;
+using System.Security.Claims;
 
 namespace FoodOrderingSystem.Application.Features.Restaurants.Commands.CreateRestaurant
 {
@@ -22,15 +23,20 @@ namespace FoodOrderingSystem.Application.Features.Restaurants.Commands.CreateRes
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
+        private readonly ICurrentUserService _currentUserService;
 
-        public CreateRestaurantCommandHandler(IUnitOfWork unitOfWork, IMapper mapper)
+        public CreateRestaurantCommandHandler(IUnitOfWork unitOfWork, IMapper mapper, ICurrentUserService currentUserService)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
+            _currentUserService = currentUserService;
         }
 
         public async Task<Result<Guid>> Handle(CreateRestaurantCommand request, CancellationToken cancellationToken)
         {
+            var userId = _currentUserService.UserId;
+            var userName = _currentUserService.UserName ?? "System";
+
             var restaurant = new Restaurant
             {
                 Name = request.Name,
@@ -38,7 +44,10 @@ namespace FoodOrderingSystem.Application.Features.Restaurants.Commands.CreateRes
                 Address = request.Address,
                 PhoneNumber = request.PhoneNumber,
                 DeliveryFee = request.DeliveryFee,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                CreatedBy = userName,
+                LastModifiedBy = userName,
+                LastModifiedAt = DateTime.UtcNow
             };
 
             await _unitOfWork.Restaurants.AddAsync(restaurant, cancellationToken);

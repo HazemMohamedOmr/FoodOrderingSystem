@@ -1,5 +1,6 @@
 using AutoMapper;
 using FoodOrderingSystem.Application.Common.Models;
+using FoodOrderingSystem.Application.Features.Users.Queries.GetAllUsers;
 using FoodOrderingSystem.Domain.Entities;
 
 namespace FoodOrderingSystem.Application.Common.Mappings
@@ -9,6 +10,8 @@ namespace FoodOrderingSystem.Application.Common.Mappings
         public MappingProfile()
         {
             CreateMap<User, UserDto>();
+            
+            CreateMap<User, UserListItemDto>();
 
             CreateMap<Restaurant, RestaurantDto>();
 

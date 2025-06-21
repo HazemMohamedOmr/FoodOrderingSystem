@@ -21,11 +21,13 @@ namespace FoodOrderingSystem.Application.Features.MenuItems.Commands.CreateMenuI
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
+        private readonly ICurrentUserService _currentUserService;
 
-        public CreateMenuItemCommandHandler(IUnitOfWork unitOfWork, IMapper mapper)
+        public CreateMenuItemCommandHandler(IUnitOfWork unitOfWork, IMapper mapper, ICurrentUserService currentUserService)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
+            _currentUserService = currentUserService;
         }
 
         public async Task<Result<Guid>> Handle(CreateMenuItemCommand request, CancellationToken cancellationToken)
@@ -37,13 +39,18 @@ namespace FoodOrderingSystem.Application.Features.MenuItems.Commands.CreateMenuI
                 return Result<Guid>.Failure($"Restaurant with ID {request.RestaurantId} not found.");
             }
 
+            var userName = _currentUserService.UserName ?? "System";
+
             var menuItem = new MenuItem
             {
                 Name = request.Name,
                 Description = request.Description,
                 Price = request.Price,
                 RestaurantId = request.RestaurantId,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                CreatedBy = userName,
+                LastModifiedBy = userName,
+                LastModifiedAt = DateTime.UtcNow
             };
 
             await _unitOfWork.MenuItems.AddAsync(menuItem, cancellationToken);

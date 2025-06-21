@@ -11,7 +11,6 @@ namespace FoodOrderingSystem.Persistence.Repositories
     {
         private readonly ApplicationDbContext _dbContext;
         private IDbContextTransaction _transaction;
-        private bool _disposed;
 
         public UnitOfWork(ApplicationDbContext dbContext)
         {
@@ -37,21 +36,21 @@ namespace FoodOrderingSystem.Persistence.Repositories
             return await _dbContext.SaveChangesAsync(cancellationToken);
         }
 
-        public async Task BeginTransactionAsync(CancellationToken cancellationToken = default)
+        public async Task BeginTransactionAsync()
         {
-            _transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+            _transaction = await _dbContext.Database.BeginTransactionAsync();
         }
 
-        public async Task CommitTransactionAsync(CancellationToken cancellationToken = default)
+        public async Task CommitTransactionAsync()
         {
             try
             {
-                await _dbContext.SaveChangesAsync(cancellationToken);
-                await _transaction.CommitAsync(cancellationToken);
+                await _dbContext.SaveChangesAsync();
+                await _transaction.CommitAsync();
             }
             catch
             {
-                await RollbackTransactionAsync(cancellationToken);
+                await RollbackTransactionAsync();
                 throw;
             }
             finally
@@ -64,30 +63,14 @@ namespace FoodOrderingSystem.Persistence.Repositories
             }
         }
 
-        public async Task RollbackTransactionAsync(CancellationToken cancellationToken = default)
+        public async Task RollbackTransactionAsync()
         {
             if (_transaction != null)
             {
-                await _transaction.RollbackAsync(cancellationToken);
+                await _transaction.RollbackAsync();
                 _transaction.Dispose();
                 _transaction = null;
             }
-        }
-
-        public void Dispose()
-        {
-            Dispose(true);
-            GC.SuppressFinalize(this);
-        }
-
-        protected virtual void Dispose(bool disposing)
-        {
-            if (!_disposed && disposing)
-            {
-                _transaction?.Dispose();
-                _dbContext.Dispose();
-            }
-            _disposed = true;
         }
     }
 } 

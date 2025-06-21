@@ -5,6 +5,8 @@ using AutoMapper;
 using FoodOrderingSystem.Application.Common.Interfaces;
 using FoodOrderingSystem.Application.Common.Models;
 using MediatR;
+using System.Linq;
+using System.Collections.Generic;
 
 namespace FoodOrderingSystem.Application.Features.Restaurants.Queries.GetRestaurantById
 {
@@ -34,6 +36,11 @@ namespace FoodOrderingSystem.Application.Features.Restaurants.Queries.GetRestaur
             }
 
             var restaurantDto = _mapper.Map<RestaurantDto>(restaurant);
+            
+            // Get menu items for the restaurant
+            var menuItems = await _unitOfWork.MenuItems.FindAsync(mi => mi.RestaurantId == request.Id, cancellationToken);
+            restaurantDto.MenuItems = _mapper.Map<List<MenuItemDto>>(menuItems);
+
             return Result<RestaurantDto>.Success(restaurantDto);
         }
     }

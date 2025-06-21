@@ -83,7 +83,7 @@ namespace FoodOrderingSystem.Application.Features.Orders.Queries.GetOrderById
             }
 
             // Calculate delivery fee share and total
-            if (orderItemDtos.Any())
+            if (orderItemDtos.Any() && restaurant != null)
             {
                 var userCount = orderItemDtos.Select(oi => oi.UserId).Distinct().Count();
                 var deliveryFeeShare = userCount > 0 ? restaurant.DeliveryFee / userCount : 0;

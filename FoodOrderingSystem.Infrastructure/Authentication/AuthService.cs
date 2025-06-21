@@ -18,6 +18,10 @@ namespace FoodOrderingSystem.Infrastructure.Authentication
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly JwtSettings _jwtSettings;
+        private const int SaltSize = 16; // 128 bits
+        private const int KeySize = 32; // 256 bits
+        private const int Iterations = 10000;
+        private static readonly HashAlgorithmName HashAlgorithm = HashAlgorithmName.SHA256;
 
         public AuthService(IUnitOfWork unitOfWork, IOptions<JwtSettings> jwtSettings)
         {
@@ -43,15 +47,30 @@ namespace FoodOrderingSystem.Infrastructure.Authentication
             return Result<string>.Success(token);
         }
 
-        public async Task<Result<User>> RegisterUserAsync(User user, string password, CancellationToken cancellationToken = default)
+        public async Task<Result<string>> AuthenticateByEmailAsync(string email, string password, CancellationToken cancellationToken = default)
         {
-            if (await GetUserByPhoneNumberAsync(user.PhoneNumber, cancellationToken) != null)
+            var user = await GetUserByEmailAsync(email, cancellationToken);
+
+            if (user == null)
             {
-                return Result<User>.Failure("Phone number is already registered.");
+                return Result<string>.Failure("Invalid email or password.");
             }
 
+            if (!VerifyPasswordHash(password, user.PasswordHash))
+            {
+                return Result<string>.Failure("Invalid email or password.");
+            }
+
+            var token = GenerateJwtToken(user);
+            return Result<string>.Success(token);
+        }
+
+        public async Task<Result<User>> RegisterUserAsync(User user, string password, CancellationToken cancellationToken = default)
+        {
+            // Set password hash
             user.PasswordHash = CreatePasswordHash(password);
 
+            // Save the user
             await _unitOfWork.Users.AddAsync(user, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -70,6 +89,12 @@ namespace FoodOrderingSystem.Infrastructure.Authentication
         public async Task<User> GetUserByPhoneNumberAsync(string phoneNumber, CancellationToken cancellationToken = default)
         {
             var users = await _unitOfWork.Users.FindAsync(u => u.PhoneNumber == phoneNumber, cancellationToken);
+            return users.Count > 0 ? users[0] : null;
+        }
+
+        public async Task<User> GetUserByEmailAsync(string email, CancellationToken cancellationToken = default)
+        {
+            var users = await _unitOfWork.Users.FindAsync(u => u.Email == email, cancellationToken);
             return users.Count > 0 ? users[0] : null;
         }
 
@@ -134,37 +159,66 @@ namespace FoodOrderingSystem.Infrastructure.Authentication
             return tokenHandler.WriteToken(token);
         }
 
-        private string CreatePasswordHash(string password)
+        public string CreatePasswordHash(string password)
         {
-            using var hmac = new HMACSHA512();
-            var salt = hmac.Key;
-            var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(password));
+            // Generate a random salt
+            byte[] salt = new byte[SaltSize];
+            using (var rng = RandomNumberGenerator.Create())
+            {
+                rng.GetBytes(salt);
+            }
 
-            var result = new byte[salt.Length + hash.Length];
-            Buffer.BlockCopy(salt, 0, result, 0, salt.Length);
-            Buffer.BlockCopy(hash, 0, result, salt.Length, hash.Length);
+            // Hash the password with PBKDF2
+            byte[] hash = Rfc2898DeriveBytes.Pbkdf2(
+                password: password,
+                salt: salt,
+                iterations: Iterations,
+                hashAlgorithm: HashAlgorithm,
+                outputLength: KeySize);
 
-            return Convert.ToBase64String(result);
+            // Combine salt and hash
+            byte[] hashBytes = new byte[SaltSize + KeySize];
+            Array.Copy(salt, 0, hashBytes, 0, SaltSize);
+            Array.Copy(hash, 0, hashBytes, SaltSize, KeySize);
+
+            // Convert to base64 for storage
+            return Convert.ToBase64String(hashBytes);
         }
 
         private bool VerifyPasswordHash(string password, string storedHash)
         {
-            byte[] hashBytes = Convert.FromBase64String(storedHash);
-            
-            int saltSize = 128 / 8; // HMACSHA512 key size
-            byte[] salt = new byte[saltSize];
-            Buffer.BlockCopy(hashBytes, 0, salt, 0, saltSize);
-
-            using var hmac = new HMACSHA512(salt);
-            var computedHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(password));
-
-            for (int i = 0; i < computedHash.Length; i++)
+            try
             {
-                if (computedHash[i] != hashBytes[i + saltSize])
-                    return false;
-            }
+                // Convert from base64 string
+                byte[] hashBytes = Convert.FromBase64String(storedHash);
 
-            return true;
+                // Extract salt (first SaltSize bytes)
+                byte[] salt = new byte[SaltSize];
+                Array.Copy(hashBytes, 0, salt, 0, SaltSize);
+
+                // Hash the input password
+                byte[] computedHash = Rfc2898DeriveBytes.Pbkdf2(
+                    password: password,
+                    salt: salt,
+                    iterations: Iterations,
+                    hashAlgorithm: HashAlgorithm,
+                    outputLength: KeySize);
+
+                // Compare hash values
+                for (int i = 0; i < KeySize; i++)
+                {
+                    if (hashBytes[i + SaltSize] != computedHash[i])
+                    {
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
         }
     }
 } 

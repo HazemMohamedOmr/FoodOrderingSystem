@@ -23,32 +23,29 @@ namespace FoodOrderingSystem.Persistence.Repositories
             return await _dbContext.Set<T>().FindAsync(new object[] { id }, cancellationToken);
         }
 
-        public async Task<IReadOnlyList<T>> GetAllAsync(CancellationToken cancellationToken = default)
+        public async Task<List<T>> GetAllAsync(CancellationToken cancellationToken = default)
         {
             return await _dbContext.Set<T>().ToListAsync(cancellationToken);
         }
 
-        public async Task<IReadOnlyList<T>> FindAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default)
+        public async Task<List<T>> FindAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default)
         {
             return await _dbContext.Set<T>().Where(predicate).ToListAsync(cancellationToken);
         }
 
-        public async Task<T> AddAsync(T entity, CancellationToken cancellationToken = default)
+        public async Task AddAsync(T entity, CancellationToken cancellationToken = default)
         {
             await _dbContext.Set<T>().AddAsync(entity, cancellationToken);
-            return entity;
         }
 
-        public async Task UpdateAsync(T entity, CancellationToken cancellationToken = default)
+        public void Update(T entity)
         {
-            _dbContext.Entry(entity).State = EntityState.Modified;
-            await Task.CompletedTask;
+            _dbContext.Set<T>().Update(entity);
         }
 
-        public async Task DeleteAsync(T entity, CancellationToken cancellationToken = default)
+        public void Delete(T entity)
         {
             _dbContext.Set<T>().Remove(entity);
-            await Task.CompletedTask;
         }
 
         public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
@@ -61,4 +58,4 @@ namespace FoodOrderingSystem.Persistence.Repositories
             return _dbContext.Set<T>().AsQueryable();
         }
     }
-} 
+}
