@@ -10,7 +10,7 @@ using System;
 
 namespace FoodOrderingSystem.Application.Features.Users.Commands.RegisterUser
 {
-    public class RegisterUserCommand : IRequest<Result<UserDto>>
+    public class RegisterUserCommand : IRequest<Result<AuthResponseDto>>
     {
         public string Name { get; set; }
         public string PhoneNumber { get; set; }
@@ -18,7 +18,7 @@ namespace FoodOrderingSystem.Application.Features.Users.Commands.RegisterUser
         public string Password { get; set; }
     }
 
-    public class RegisterUserCommandHandler : IRequestHandler<RegisterUserCommand, Result<UserDto>>
+    public class RegisterUserCommandHandler : IRequestHandler<RegisterUserCommand, Result<AuthResponseDto>>
     {
         private readonly IAuthService _authService;
         private readonly IMapper _mapper;
@@ -29,20 +29,20 @@ namespace FoodOrderingSystem.Application.Features.Users.Commands.RegisterUser
             _mapper = mapper;
         }
 
-        public async Task<Result<UserDto>> Handle(RegisterUserCommand request, CancellationToken cancellationToken)
+        public async Task<Result<AuthResponseDto>> Handle(RegisterUserCommand request, CancellationToken cancellationToken)
         {
             // Check for existing phone number
             var existingUserByPhone = await _authService.GetUserByPhoneNumberAsync(request.PhoneNumber, cancellationToken);
             if (existingUserByPhone != null)
             {
-                return Result<UserDto>.Failure("Phone number is already registered.");
+                return Result<AuthResponseDto>.Failure("Phone number is already registered.");
             }
 
             // Check for existing email
             var existingUserByEmail = await _authService.GetUserByEmailAsync(request.Email, cancellationToken);
             if (existingUserByEmail != null)
             {
-                return Result<UserDto>.Failure("Email is already registered.");
+                return Result<AuthResponseDto>.Failure("Email is already registered.");
             }
 
             var user = new User
@@ -60,11 +60,10 @@ namespace FoodOrderingSystem.Application.Features.Users.Commands.RegisterUser
 
             if (!result.Succeeded)
             {
-                return Result<UserDto>.Failure(result.Errors);
+                return Result<AuthResponseDto>.Failure(result.Errors);
             }
 
-            var userDto = _mapper.Map<UserDto>(result.Data);
-            return Result<UserDto>.Success(userDto);
+            return result;
         }
     }
 } 

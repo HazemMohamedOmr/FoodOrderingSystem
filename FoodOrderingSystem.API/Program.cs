@@ -77,8 +77,8 @@ var app = builder.Build();
 await DbInitializer.InitializeAsync(app.Services);
 
 // Configure the HTTP request pipeline
-if (app.Environment.IsDevelopment())
-{
+//if (app.Environment.IsDevelopment())
+//{
     app.UseSwagger();
     app.UseSwaggerUI(c =>
     {
@@ -89,7 +89,7 @@ if (app.Environment.IsDevelopment())
         c.DisplayRequestDuration();
     });
     app.UseDeveloperExceptionPage();
-}
+//}
 
 app.UseHttpsRedirection();
 app.UseCors("AllowAll");
@@ -113,7 +113,7 @@ public class HangfireAuthorizationFilter : IDashboardAuthorizationFilter
     public bool Authorize(DashboardContext context)
     {
         var httpContext = context.GetHttpContext();
-        
+
         // In development, allow access to dashboard without authentication
         if (httpContext.RequestServices
             .GetRequiredService<IWebHostEnvironment>()
@@ -123,7 +123,7 @@ public class HangfireAuthorizationFilter : IDashboardAuthorizationFilter
         }
 
         // In production, check if the user is authenticated and has the Admin role
-        return httpContext.User.Identity?.IsAuthenticated == true && 
+        return httpContext.User.Identity?.IsAuthenticated == true &&
                httpContext.User.IsInRole("Admin");
     }
 }

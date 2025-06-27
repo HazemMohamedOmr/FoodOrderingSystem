@@ -6,6 +6,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using AutoMapper;
 using FoodOrderingSystem.Application.Common.Interfaces;
 using FoodOrderingSystem.Application.Common.Models;
 using FoodOrderingSystem.Domain.Entities;
@@ -18,15 +19,17 @@ namespace FoodOrderingSystem.Infrastructure.Authentication
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly JwtSettings _jwtSettings;
+        private readonly IMapper _mapper;
         private const int SaltSize = 16; // 128 bits
         private const int KeySize = 32; // 256 bits
         private const int Iterations = 10000;
         private static readonly HashAlgorithmName HashAlgorithm = HashAlgorithmName.SHA256;
 
-        public AuthService(IUnitOfWork unitOfWork, IOptions<JwtSettings> jwtSettings)
+        public AuthService(IUnitOfWork unitOfWork, IOptions<JwtSettings> jwtSettings, IMapper mapper)
         {
             _unitOfWork = unitOfWork;
             _jwtSettings = jwtSettings.Value;
+            _mapper = mapper;
         }
 
         public async Task<Result<string>> AuthenticateAsync(string phoneNumber, string password, CancellationToken cancellationToken = default)
@@ -47,25 +50,36 @@ namespace FoodOrderingSystem.Infrastructure.Authentication
             return Result<string>.Success(token);
         }
 
-        public async Task<Result<string>> AuthenticateByEmailAsync(string email, string password, CancellationToken cancellationToken = default)
+        public async Task<Result<AuthResponseDto>> AuthenticateByEmailAsync(string email, string password, CancellationToken cancellationToken = default)
         {
             var user = await GetUserByEmailAsync(email, cancellationToken);
 
             if (user == null)
             {
-                return Result<string>.Failure("Invalid email or password.");
+                return Result<AuthResponseDto>.Failure("Invalid email or password.");
             }
 
             if (!VerifyPasswordHash(password, user.PasswordHash))
             {
-                return Result<string>.Failure("Invalid email or password.");
+                return Result<AuthResponseDto>.Failure("Invalid email or password.");
             }
 
-            var token = GenerateJwtToken(user);
-            return Result<string>.Success(token);
+            // Generate token with expiration
+            DateTime expiration = DateTime.UtcNow.AddMinutes(_jwtSettings.ExpiryMinutes);
+            var token = GenerateJwtToken(user, expiration);
+            
+            // Create response
+            var response = new AuthResponseDto
+            {
+                Token = token,
+                Expiration = expiration.ToString("o"), // ISO 8601 format
+                User = _mapper.Map<UserDto>(user)
+            };
+            
+            return Result<AuthResponseDto>.Success(response);
         }
 
-        public async Task<Result<User>> RegisterUserAsync(User user, string password, CancellationToken cancellationToken = default)
+        public async Task<Result<AuthResponseDto>> RegisterUserAsync(User user, string password, CancellationToken cancellationToken = default)
         {
             // Set password hash
             user.PasswordHash = CreatePasswordHash(password);
@@ -73,8 +87,20 @@ namespace FoodOrderingSystem.Infrastructure.Authentication
             // Save the user
             await _unitOfWork.Users.AddAsync(user, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
+            
+            // Generate token with expiration
+            DateTime expiration = DateTime.UtcNow.AddMinutes(_jwtSettings.ExpiryMinutes);
+            var token = GenerateJwtToken(user, expiration);
+            
+            // Create response
+            var response = new AuthResponseDto
+            {
+                Token = token,
+                Expiration = expiration.ToString("o"), // ISO 8601 format
+                User = _mapper.Map<UserDto>(user)
+            };
 
-            return Result<User>.Success(user);
+            return Result<AuthResponseDto>.Success(response);
         }
 
         public async Task<User> GetUserByIdAsync(string userId, CancellationToken cancellationToken = default)
@@ -130,6 +156,11 @@ namespace FoodOrderingSystem.Infrastructure.Authentication
 
         private string GenerateJwtToken(User user)
         {
+            return GenerateJwtToken(user, DateTime.UtcNow.AddMinutes(_jwtSettings.ExpiryMinutes));
+        }
+
+        private string GenerateJwtToken(User user, DateTime expiration)
+        {
             var tokenHandler = new JwtSecurityTokenHandler();
             var key = Encoding.ASCII.GetBytes(_jwtSettings.Secret);
             
@@ -149,7 +180,7 @@ namespace FoodOrderingSystem.Infrastructure.Authentication
             var tokenDescriptor = new SecurityTokenDescriptor
             {
                 Subject = new ClaimsIdentity(claims),
-                Expires = DateTime.UtcNow.AddMinutes(_jwtSettings.ExpiryMinutes),
+                Expires = expiration,
                 Issuer = _jwtSettings.Issuer,
                 Audience = _jwtSettings.Audience,
                 SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)

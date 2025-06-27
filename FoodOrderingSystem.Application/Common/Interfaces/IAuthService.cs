@@ -8,8 +8,8 @@ namespace FoodOrderingSystem.Application.Common.Interfaces
     public interface IAuthService
     {
         Task<Result<string>> AuthenticateAsync(string phoneNumber, string password, CancellationToken cancellationToken = default);
-        Task<Result<string>> AuthenticateByEmailAsync(string email, string password, CancellationToken cancellationToken = default);
-        Task<Result<User>> RegisterUserAsync(User user, string password, CancellationToken cancellationToken = default);
+        Task<Result<AuthResponseDto>> AuthenticateByEmailAsync(string email, string password, CancellationToken cancellationToken = default);
+        Task<Result<AuthResponseDto>> RegisterUserAsync(User user, string password, CancellationToken cancellationToken = default);
         Task<User> GetUserByIdAsync(string userId, CancellationToken cancellationToken = default);
         Task<User> GetUserByPhoneNumberAsync(string phoneNumber, CancellationToken cancellationToken = default);
         Task<User> GetUserByEmailAsync(string email, CancellationToken cancellationToken = default);

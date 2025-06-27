@@ -16,6 +16,7 @@ namespace FoodOrderingSystem.Application.Features.Orders.Queries.GetOrderHistory
         public Guid? UserId { get; set; }
         public Guid? RestaurantId { get; set; }
         public bool IncludeOtherParticipants { get; set; } = false;
+        public bool ShowAllOrders { get; set; } = false;
     }
 
     public class OrderHistoryDto
@@ -60,11 +61,16 @@ namespace FoodOrderingSystem.Application.Features.Orders.Queries.GetOrderHistory
 
         public async Task<Result<List<OrderHistoryDto>>> Handle(GetOrderHistoryQuery request, CancellationToken cancellationToken)
         {
-            // Determine the user to filter by
+            // Get all orders
+            var orders = await _unitOfWork.Orders.GetAllAsync(cancellationToken);
+            var filteredOrders = orders.AsQueryable();
+
+            // Determine if we should filter by user
+            bool shouldFilterByUser = !request.ShowAllOrders;
             Guid? filterUserId = request.UserId;
 
-            // If no specific user is provided, use the current user
-            if (!filterUserId.HasValue && !string.IsNullOrEmpty(_currentUserService.UserId))
+            // If we should filter by user but no specific user is provided, use the current user
+            if (shouldFilterByUser && !filterUserId.HasValue && !string.IsNullOrEmpty(_currentUserService.UserId))
             {
                 if (Guid.TryParse(_currentUserService.UserId, out Guid currentUserId))
                 {
@@ -72,26 +78,22 @@ namespace FoodOrderingSystem.Application.Features.Orders.Queries.GetOrderHistory
                 }
             }
 
-            if (!filterUserId.HasValue)
-            {
-                return Result<List<OrderHistoryDto>>.Failure("User ID not provided and could not be determined from context.");
-            }
-
-            // Get all orders
-            var orders = await _unitOfWork.Orders.GetAllAsync(cancellationToken);
-            var filteredOrders = orders.AsQueryable();
-
+            // Filter by restaurant if provided
             if (request.RestaurantId.HasValue)
             {
                 filteredOrders = filteredOrders.Where(o => o.RestaurantId == request.RestaurantId);
             }
 
-            // Find orders where the user participated
-            var userOrderItems = await _unitOfWork.OrderItems.FindAsync(
-                oi => oi.UserId == filterUserId, cancellationToken);
+            // Only filter by user if we should filter and have a user ID
+            if (shouldFilterByUser && filterUserId.HasValue)
+            {
+                // Find orders where the user participated
+                var userOrderItems = await _unitOfWork.OrderItems.FindAsync(
+                    oi => oi.UserId == filterUserId, cancellationToken);
 
-            var userOrderIds = userOrderItems.Select(oi => oi.OrderId).Distinct();
-            filteredOrders = filteredOrders.Where(o => userOrderIds.Contains(o.Id));
+                var userOrderIds = userOrderItems.Select(oi => oi.OrderId).Distinct();
+                filteredOrders = filteredOrders.Where(o => userOrderIds.Contains(o.Id));
+            }
 
             // Order by date descending
             var orderedOrders = filteredOrders.OrderByDescending(o => o.CreatedAt).ToList();
@@ -124,10 +126,21 @@ namespace FoodOrderingSystem.Application.Features.Orders.Queries.GetOrderHistory
                     orderHistory.ManagerName = manager.Name;
                 }
 
-                // Get all items for the order if includeOtherParticipants is true, otherwise just get the user's items
-                var orderItems = request.IncludeOtherParticipants
-                    ? await _unitOfWork.OrderItems.FindAsync(oi => oi.OrderId == order.Id, cancellationToken)
-                    : await _unitOfWork.OrderItems.FindAsync(oi => oi.OrderId == order.Id && oi.UserId == filterUserId, cancellationToken);
+                // Determine which order items to include
+                IEnumerable<Domain.Entities.OrderItem> orderItems;
+                
+                if (shouldFilterByUser && filterUserId.HasValue && !request.IncludeOtherParticipants)
+                {
+                    // If filtering by user and don't want other participants, only get that user's items
+                    orderItems = await _unitOfWork.OrderItems.FindAsync(
+                        oi => oi.OrderId == order.Id && oi.UserId == filterUserId, cancellationToken);
+                }
+                else
+                {
+                    // Otherwise get all items for the order
+                    orderItems = await _unitOfWork.OrderItems.FindAsync(
+                        oi => oi.OrderId == order.Id, cancellationToken);
+                }
 
                 // Calculate delivery fee share
                 int participantCount = (await _unitOfWork.OrderItems.FindAsync(oi => oi.OrderId == order.Id, cancellationToken))
@@ -140,11 +153,14 @@ namespace FoodOrderingSystem.Application.Features.Orders.Queries.GetOrderHistory
                     orderHistory.DeliveryFeeShare = restaurant.DeliveryFee / participantCount;
                 }
 
-                // Get payment status
-                var payment = (await _unitOfWork.Payments.FindAsync(
-                    p => p.OrderId == order.Id && p.UserId == filterUserId, cancellationToken)).FirstOrDefault();
+                // Get payment status if filtering by user
+                if (shouldFilterByUser && filterUserId.HasValue)
+                {
+                    var payment = (await _unitOfWork.Payments.FindAsync(
+                        p => p.OrderId == order.Id && p.UserId == filterUserId, cancellationToken)).FirstOrDefault();
 
-                orderHistory.UserPaymentStatus = payment?.Status ?? PaymentStatus.Unpaid;
+                    orderHistory.UserPaymentStatus = payment?.Status ?? PaymentStatus.Unpaid;
+                }
 
                 decimal userTotal = 0;
 
@@ -170,15 +186,18 @@ namespace FoodOrderingSystem.Application.Features.Orders.Queries.GetOrderHistory
 
                     orderHistory.UserItems.Add(orderItemDto);
 
-                    // Only add to user total if it's the user's own item
-                    if (item.UserId == filterUserId)
+                    // Only add to user total if filtering by user and it's the user's own item
+                    if (shouldFilterByUser && filterUserId.HasValue && item.UserId == filterUserId)
                     {
                         userTotal += orderItemDto.Total;
                     }
                 }
 
-                // Add delivery fee share to total
-                orderHistory.UserTotal = userTotal + orderHistory.DeliveryFeeShare;
+                // Add delivery fee share to total if filtering by user
+                if (shouldFilterByUser && filterUserId.HasValue)
+                {
+                    orderHistory.UserTotal = userTotal + orderHistory.DeliveryFeeShare;
+                }
 
                 result.Add(orderHistory);
             }

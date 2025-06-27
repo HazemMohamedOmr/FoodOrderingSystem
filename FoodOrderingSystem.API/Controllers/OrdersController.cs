@@ -11,6 +11,7 @@ using FoodOrderingSystem.Application.Features.Orders.Queries.GetActiveOrders;
 using FoodOrderingSystem.Application.Features.Orders.Queries.GetMyOrderItems;
 using FoodOrderingSystem.Application.Features.Orders.Queries.GetOrderById;
 using FoodOrderingSystem.Application.Features.Orders.Queries.GetOrderHistory;
+using FoodOrderingSystem.Application.Features.Orders.Queries.GetOrderItems;
 using FoodOrderingSystem.Application.Features.Orders.Queries.GetOrderReceipt;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -72,6 +73,18 @@ namespace FoodOrderingSystem.API.Controllers
             return Ok(result.Data);
         }
 
+        [HttpGet("{id}/items")]
+        [Authorize]
+        public async Task<IActionResult> GetOrderItems(Guid id)
+        {
+            var result = await Mediator.Send(new GetOrderItemsQuery { OrderId = id });
+
+            if (!result.Succeeded)
+                return NotFound(result.Errors);
+
+            return Ok(result.Data);
+        }
+
         [HttpGet("{id}/receipt")]
         [Authorize]
         public async Task<IActionResult> GetOrderReceipt(Guid id)
@@ -100,6 +113,12 @@ namespace FoodOrderingSystem.API.Controllers
         [Authorize]
         public async Task<IActionResult> GetOrderHistory([FromQuery] GetOrderHistoryQuery query)
         {
+            // If no specific filters are provided, set ShowAllOrders to true
+            if (!query.UserId.HasValue && !query.RestaurantId.HasValue)
+            {
+                query.ShowAllOrders = true;
+            }
+
             var result = await Mediator.Send(query);
 
             if (!result.Succeeded)
@@ -149,7 +168,7 @@ namespace FoodOrderingSystem.API.Controllers
         [Authorize(Roles = "Admin,Manager")]
         public async Task<IActionResult> UpdatePaymentStatus(Guid orderId, Guid userId, [FromBody] UpdatePaymentStatusRequest request)
         {
-            var currentUserId = User.FindFirst("sub")?.Value;
+            var currentUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (!Guid.TryParse(currentUserId, out Guid managerId))
             {
                 return BadRequest("Invalid user ID format.");

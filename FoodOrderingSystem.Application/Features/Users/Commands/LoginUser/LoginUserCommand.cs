@@ -6,13 +6,13 @@ using MediatR;
 
 namespace FoodOrderingSystem.Application.Features.Users.Commands.LoginUser
 {
-    public class LoginUserCommand : IRequest<Result<string>>
+    public class LoginUserCommand : IRequest<Result<AuthResponseDto>>
     {
         public string Email { get; set; }
         public string Password { get; set; }
     }
 
-    public class LoginUserCommandHandler : IRequestHandler<LoginUserCommand, Result<string>>
+    public class LoginUserCommandHandler : IRequestHandler<LoginUserCommand, Result<AuthResponseDto>>
     {
         private readonly IAuthService _authService;
 
@@ -21,7 +21,7 @@ namespace FoodOrderingSystem.Application.Features.Users.Commands.LoginUser
             _authService = authService;
         }
 
-        public async Task<Result<string>> Handle(LoginUserCommand request, CancellationToken cancellationToken)
+        public async Task<Result<AuthResponseDto>> Handle(LoginUserCommand request, CancellationToken cancellationToken)
         {
             return await _authService.AuthenticateByEmailAsync(request.Email, request.Password, cancellationToken);
         }
