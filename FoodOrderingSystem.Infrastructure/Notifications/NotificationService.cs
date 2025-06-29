@@ -253,6 +253,46 @@ namespace FoodOrderingSystem.Infrastructure.Notifications
                     <div style='margin: 20px 0; border-top: 1px dashed #ddd;'></div>");
                 }
 
+                // Generate simplified order list with sequential numbering
+                var simplifiedOrderBuilder = new StringBuilder();
+                simplifiedOrderBuilder.Append(@"
+                <h3>Simplified Order List</h3>
+                <div style='background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin-top: 20px; font-family: Arial, sans-serif; direction: rtl; text-align: right;'>");
+                
+                int userSequence = 1;
+                foreach (var userItems in itemsByUser)
+                {
+                    var user = await _unitOfWork.Users.GetByIdAsync(userItems.Key, cancellationToken);
+                    string userName = user?.Name ?? "Unknown User";
+                    
+                    simplifiedOrderBuilder.Append($@"
+                    <div style='margin-bottom: 15px;'>
+                        <strong>{userName} : {userSequence}</strong>
+                        <div style='padding-right: 15px;'>");
+                    
+                    foreach (var (item, name, _) in userItems.Value)
+                    {
+                        string itemLine = $"{item.Quantity} {name}";
+                        if (!string.IsNullOrEmpty(item.Note))
+                        {
+                            itemLine += $" {item.Note}";
+                        }
+                        
+                        simplifiedOrderBuilder.Append($@"
+                            <div>{itemLine}</div>");
+                    }
+                    
+                    simplifiedOrderBuilder.Append(@"
+                        </div>
+                        <div style='margin-top: 5px;'>......</div>
+                    </div>");
+                    
+                    userSequence++;
+                }
+                
+                simplifiedOrderBuilder.Append(@"
+                </div>");
+
                 string content = $@"
                 <h2>Order Summary - {restaurant.Name}</h2>
                 
@@ -272,7 +312,9 @@ namespace FoodOrderingSystem.Infrastructure.Notifications
                     <h4 style='margin-top: 0;'>Collection Instructions</h4>
                     <p>Please collect the payment from each participant according to their individual totals shown above.</p>
                     <p>Total amount to be collected: {totalOrderAmount:C}</p>
-                </div>";
+                </div>
+                
+                {simplifiedOrderBuilder.ToString()}";
 
                 string subject = $"Complete Order Summary - {restaurant.Name}";
                 string emailContent = GetEmailBaseTemplate(content);
