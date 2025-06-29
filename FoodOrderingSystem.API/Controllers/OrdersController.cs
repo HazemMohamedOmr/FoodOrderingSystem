@@ -12,6 +12,7 @@ using FoodOrderingSystem.Application.Features.Orders.Queries.GetMyOrderItems;
 using FoodOrderingSystem.Application.Features.Orders.Queries.GetOrderById;
 using FoodOrderingSystem.Application.Features.Orders.Queries.GetOrderHistory;
 using FoodOrderingSystem.Application.Features.Orders.Queries.GetOrderItems;
+using FoodOrderingSystem.Application.Features.Orders.Queries.GetOrderPaymentStatuses;
 using FoodOrderingSystem.Application.Features.Orders.Queries.GetOrderReceipt;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -78,6 +79,18 @@ namespace FoodOrderingSystem.API.Controllers
         public async Task<IActionResult> GetOrderItems(Guid id)
         {
             var result = await Mediator.Send(new GetOrderItemsQuery { OrderId = id });
+
+            if (!result.Succeeded)
+                return NotFound(result.Errors);
+
+            return Ok(result.Data);
+        }
+
+        [HttpGet("{id}/payment-statuses")]
+        [Authorize]
+        public async Task<IActionResult> GetOrderPaymentStatuses(Guid id)
+        {
+            var result = await Mediator.Send(new GetOrderPaymentStatusesQuery { OrderId = id });
 
             if (!result.Succeeded)
                 return NotFound(result.Errors);
@@ -168,7 +181,7 @@ namespace FoodOrderingSystem.API.Controllers
         [Authorize(Roles = "Admin,Manager")]
         public async Task<IActionResult> UpdatePaymentStatus(Guid orderId, Guid userId, [FromBody] UpdatePaymentStatusRequest request)
         {
-            var currentUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var currentUserId = User.FindFirst("sub")?.Value;
             if (!Guid.TryParse(currentUserId, out Guid managerId))
             {
                 return BadRequest("Invalid user ID format.");

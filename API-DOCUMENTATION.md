@@ -555,6 +555,45 @@ Retrieve all items for a specific order.
 - `200 OK`: Items retrieved
 - `404 Not Found`: Order not found
 
+### Get Order Payment Statuses
+
+Retrieve payment statuses for all users in a specific order.
+
+- **URL**: `/orders/{id}/payment-statuses`
+- **Method**: `GET`
+- **Auth Required**: Yes
+
+**Path Parameters:**
+- `id`: UUID of the order
+
+**Response:**
+```json
+{
+  "succeeded": true,
+  "errors": [],
+  "data": {
+    "orderId": "uuid",
+    "restaurantName": "string",
+    "deliveryFee": "decimal",
+    "orderDate": "datetime",
+    "status": "string",
+    "userPayments": [
+      {
+        "userId": "uuid",
+        "userName": "string",
+        "phoneNumber": "string",
+        "amount": "decimal",
+        "status": "string"
+      }
+    ]
+  }
+}
+```
+
+**Status Codes:**
+- `200 OK`: Payment statuses retrieved
+- `404 Not Found`: Order not found
+
 ### Get User's Order Items
 
 Get the current user's items in a specific order.
