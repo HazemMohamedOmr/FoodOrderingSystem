@@ -181,7 +181,7 @@ namespace FoodOrderingSystem.API.Controllers
         [Authorize(Roles = "Admin,Manager")]
         public async Task<IActionResult> UpdatePaymentStatus(Guid orderId, Guid userId, [FromBody] UpdatePaymentStatusRequest request)
         {
-            var currentUserId = User.FindFirst("sub")?.Value;
+            var currentUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (!Guid.TryParse(currentUserId, out Guid managerId))
             {
                 return BadRequest("Invalid user ID format.");
@@ -208,22 +208,22 @@ namespace FoodOrderingSystem.API.Controllers
         public async Task<IActionResult> GetMyOrderItems(Guid id)
         {
             var result = await Mediator.Send(new GetMyOrderItemsQuery { OrderId = id });
-            
+
             if (!result.Succeeded)
                 return BadRequest(result.Errors);
-                
+
             return Ok(result.Data);
         }
-        
+
         [HttpDelete("items/{id}")]
         [Authorize]
         public async Task<IActionResult> DeleteOrderItem(Guid id)
         {
             var result = await Mediator.Send(new DeleteOrderItemCommand { OrderItemId = id });
-            
+
             if (!result.Succeeded)
                 return BadRequest(result.Errors);
-                
+
             return Ok(new { message = "Order item deleted successfully" });
         }
     }
